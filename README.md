@@ -80,6 +80,15 @@
 %USERPROFILE%\Downloads\codex-msix
 ```
 
+## 致谢
+
+本项目由 shepherdleong-art 制作。
+
+开发与整理过程中使用了：
+
+- OpenAI Codex
+- Claude Code
+
 ### Windows 提示脚本被阻止怎么办？
 
 如果文件是从网上下载的，Windows 可能会阻止脚本。可以右键 ZIP 或脚本文件，打开“属性”，点击“解除锁定”。
