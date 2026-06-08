@@ -79,6 +79,9 @@
 ```text
 %USERPROFILE%\Downloads\codex-msix
 ```
+### Windows 提示脚本被阻止怎么办？
+
+如果文件是从网上下载的，Windows 可能会阻止脚本。可以右键 ZIP 或脚本文件，打开“属性”，点击“解除锁定”。
 
 ## 致谢
 
@@ -88,7 +91,3 @@
 
 - OpenAI Codex
 - Claude Code
-
-### Windows 提示脚本被阻止怎么办？
-
-如果文件是从网上下载的，Windows 可能会阻止脚本。可以右键 ZIP 或脚本文件，打开“属性”，点击“解除锁定”。
