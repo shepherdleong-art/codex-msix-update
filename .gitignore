@@ -1,0 +1,21 @@
+# Downloaded packages should not be committed.
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+*.download
+
+# Local archives and temporary files.
+*.zip
+*.7z
+*.rar
+*.tmp
+*.log
+
+# Windows metadata.
+Thumbs.db
+Desktop.ini
+
+# Editor files.
+.vscode/
+.idea/
