@@ -53,6 +53,7 @@ function Set-State([string]$message, [int]$percent) {
 }
 
 function Set-Busy([bool]$busy) {
+    $btnCheck.Enabled = -not $busy
     $btnUpdate.Enabled = -not $busy
     $btnLocal.Enabled = -not $busy
     $btnOpen.Enabled = -not $busy
@@ -110,6 +111,61 @@ function Resolve-LatestMsix([string]$ring) {
     $latestValue.Text = "$($latest.Version)"
     Set-State "已找到 $($latest.Name)" 20
     return $latest
+}
+
+function Show-VersionComparison($latest) {
+    Refresh-InstalledState
+    $current = Get-InstalledCodexPackage
+
+    if (-not $current) {
+        $latestValue.Text = "$($latest.Version)"
+        $message = "当前未安装 Codex。最新版本是 $($latest.Version)，可以点击[检查并更新]安装。"
+        Set-State $message 100
+        Append-Log $message
+        [System.Windows.Forms.MessageBox]::Show(
+            $message,
+            "版本检查",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        ) | Out-Null
+        return
+    }
+
+    $currentVersion = [version]$current.Version
+    $latestVersion = [version]$latest.Version
+    $latestValue.Text = "$latestVersion"
+
+    if ($latestVersion -gt $currentVersion) {
+        $message = "发现新版本：当前 $currentVersion，最新 $latestVersion。可以点击[检查并更新]。"
+        Set-State $message 100
+        Append-Log $message
+        [System.Windows.Forms.MessageBox]::Show(
+            $message,
+            "发现新版本",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        ) | Out-Null
+    } elseif ($latestVersion -eq $currentVersion) {
+        $message = "当前已是最新版本：$currentVersion。"
+        Set-State $message 100
+        Append-Log $message
+        [System.Windows.Forms.MessageBox]::Show(
+            $message,
+            "已经是最新版本",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        ) | Out-Null
+    } else {
+        $message = "当前版本 $currentVersion 高于商店解析到的版本 $latestVersion，通常不需要更新。"
+        Set-State $message 100
+        Append-Log $message
+        [System.Windows.Forms.MessageBox]::Show(
+            $message,
+            "版本检查",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        ) | Out-Null
+    }
 }
 
 function Confirm-MsixSignature([string]$path) {
@@ -268,6 +324,14 @@ function Invoke-UpdateFlow {
         Set-State "开始检查并更新..." 5
         $ring = [string]$ringBox.SelectedItem
         $script:Latest = Resolve-LatestMsix $ring
+        $current = Get-InstalledCodexPackage
+        if ($current) {
+            $currentVersion = [version]$current.Version
+            if ($script:Latest.Version -le $currentVersion) {
+                Show-VersionComparison $script:Latest
+                return
+            }
+        }
         $pkgPath = Download-Msix $script:Latest
         Install-Msix $pkgPath $false
     } catch {
@@ -276,6 +340,28 @@ function Invoke-UpdateFlow {
         [System.Windows.Forms.MessageBox]::Show(
             $_.Exception.Message,
             "更新失败",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        ) | Out-Null
+    } finally {
+        Set-Busy $false
+    }
+}
+
+function Invoke-VersionCheckFlow {
+    Set-Busy $true
+    try {
+        Refresh-InstalledState
+        Set-State "正在检查当前版本是否最新..." 5
+        $ring = [string]$ringBox.SelectedItem
+        $script:Latest = Resolve-LatestMsix $ring
+        Show-VersionComparison $script:Latest
+    } catch {
+        Set-State "版本检查失败。" 0
+        Append-Log "ERROR: $($_.Exception.Message)"
+        [System.Windows.Forms.MessageBox]::Show(
+            $_.Exception.Message,
+            "版本检查失败",
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Error
         ) | Out-Null
@@ -470,39 +556,47 @@ $proxyNote.Location = New-Object System.Drawing.Point(300, 58)
 $proxyNote.Size = New-Object System.Drawing.Size(430, 24)
 $content.Controls.Add($proxyNote)
 
+$btnCheck = New-Object System.Windows.Forms.Button
+$btnCheck.Text = '检查版本'
+$btnCheck.Font = New-ControlFont 10 ([System.Drawing.FontStyle]::Bold)
+$btnCheck.Location = New-Object System.Drawing.Point(24, 104)
+$btnCheck.Size = New-Object System.Drawing.Size(112, 42)
+$content.Controls.Add($btnCheck)
+Set-ButtonStyle $btnCheck ([System.Drawing.Color]::FromArgb(34, 104, 80)) ([System.Drawing.Color]::White)
+
 $btnUpdate = New-Object System.Windows.Forms.Button
 $btnUpdate.Text = '检查并更新'
 $btnUpdate.Font = New-ControlFont 10 ([System.Drawing.FontStyle]::Bold)
-$btnUpdate.Location = New-Object System.Drawing.Point(24, 104)
-$btnUpdate.Size = New-Object System.Drawing.Size(155, 42)
+$btnUpdate.Location = New-Object System.Drawing.Point(146, 104)
+$btnUpdate.Size = New-Object System.Drawing.Size(126, 42)
 $content.Controls.Add($btnUpdate)
-Set-ButtonStyle $btnUpdate ([System.Drawing.Color]::FromArgb(34, 104, 80)) ([System.Drawing.Color]::White)
+Set-ButtonStyle $btnUpdate ([System.Drawing.Color]::FromArgb(30, 80, 63)) ([System.Drawing.Color]::White)
 
 $btnLocal = New-Object System.Windows.Forms.Button
 $btnLocal.Text = '安装本地包'
-$btnLocal.Location = New-Object System.Drawing.Point(191, 104)
-$btnLocal.Size = New-Object System.Drawing.Size(135, 42)
+$btnLocal.Location = New-Object System.Drawing.Point(282, 104)
+$btnLocal.Size = New-Object System.Drawing.Size(112, 42)
 $content.Controls.Add($btnLocal)
 Set-ButtonStyle $btnLocal ([System.Drawing.Color]::FromArgb(232, 226, 216)) ([System.Drawing.Color]::FromArgb(31, 41, 55))
 
 $btnOpen = New-Object System.Windows.Forms.Button
 $btnOpen.Text = '打开 Codex'
-$btnOpen.Location = New-Object System.Drawing.Point(338, 104)
-$btnOpen.Size = New-Object System.Drawing.Size(105, 42)
+$btnOpen.Location = New-Object System.Drawing.Point(404, 104)
+$btnOpen.Size = New-Object System.Drawing.Size(104, 42)
 $content.Controls.Add($btnOpen)
 Set-ButtonStyle $btnOpen ([System.Drawing.Color]::FromArgb(232, 226, 216)) ([System.Drawing.Color]::FromArgb(31, 41, 55))
 
 $btnShortcut = New-Object System.Windows.Forms.Button
-$btnShortcut.Text = '创建桌面图标'
-$btnShortcut.Location = New-Object System.Drawing.Point(455, 104)
-$btnShortcut.Size = New-Object System.Drawing.Size(120, 42)
+$btnShortcut.Text = '创建图标'
+$btnShortcut.Location = New-Object System.Drawing.Point(518, 104)
+$btnShortcut.Size = New-Object System.Drawing.Size(92, 42)
 $content.Controls.Add($btnShortcut)
 Set-ButtonStyle $btnShortcut ([System.Drawing.Color]::FromArgb(232, 226, 216)) ([System.Drawing.Color]::FromArgb(31, 41, 55))
 
 $btnAdmin = New-Object System.Windows.Forms.Button
 $btnAdmin.Text = '管理员模式'
-$btnAdmin.Location = New-Object System.Drawing.Point(587, 104)
-$btnAdmin.Size = New-Object System.Drawing.Size(135, 42)
+$btnAdmin.Location = New-Object System.Drawing.Point(620, 104)
+$btnAdmin.Size = New-Object System.Drawing.Size(102, 42)
 $content.Controls.Add($btnAdmin)
 Set-ButtonStyle $btnAdmin ([System.Drawing.Color]::FromArgb(55, 65, 81)) ([System.Drawing.Color]::White)
 
@@ -546,6 +640,7 @@ $footer.Size = New-Object System.Drawing.Size(700, 28)
 $footer.Anchor = 'Bottom,Left,Right'
 $content.Controls.Add($footer)
 
+$btnCheck.Add_Click({ Invoke-VersionCheckFlow })
 $btnUpdate.Add_Click({ Invoke-UpdateFlow })
 $btnLocal.Add_Click({ Invoke-InstallLocalFlow })
 $btnOpen.Add_Click({ Open-Codex })
